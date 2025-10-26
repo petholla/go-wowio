@@ -1,4 +1,4 @@
-// x
+// Small go project for pulling io from raider.io
 package main
 
 import (
