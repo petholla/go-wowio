@@ -2,23 +2,53 @@
 package main
 
 import (
-	"os"
+//	"os"
 	"io"
 	"fmt"
 	"net/http"
+	"encoding/json"
 )
 
-func main() {
-	data, _ := getChatacterInfo("fizzcrank", "iops")
-	fmt.Println(data)
+func pprint(data any) {
+	pretty, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		fmt.Printf("Error formatting data: %s\n", err)
+	}
+	fmt.Printf(string(pretty) + "\n")
 }
 
-func getChatacterInfo(realm string, name string) (string, error) {
-	url := "https://raider.io/api/v1/characters/profile"
-	request, err := http.NewRequest(http.MethodGet, url, nil)
+func main() {
+	character, err := getChatacterInfo("fizzcrank", "iops")
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+	} else {
+		pprint(character)
+	}
+}
+
+type Character struct {
+	Name string `json:"name"`
+	Class string `json:"class"`
+	Spec string `json:"active_spec_name"`
+	Role string `json:"active_spec_role"`
+	Race string `json:"race"`
+	Faction string `json:"faction"`
+	BestRuns []Run `json:"mythic_plus_best_runs"`
+}
+
+type Run struct {
+	Dungeon string `json:"dungeon"`
+	MythicLevel int `json:"mythic_level"`
+	Score float32 `json:"score"`
+}
+
+func getChatacterInfo(realm string, name string) (Character, error) {
+	var character Character
+	url := "https://raider.io/api/v1/characters/profile"
+
+	request, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return character, fmt.Errorf("Error creating request: %s", err)
 	}
 
 	// Add query params
@@ -31,23 +61,24 @@ func getChatacterInfo(realm string, name string) (string, error) {
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		fmt.Printf("error sending request: %s\n", err)
-		body, err := io.ReadAll(request.Body)
-		if err != nil {
-			fmt.Printf("error reading body: %s\n", err)
+		body, err2 := io.ReadAll(response.Body)
+		if err2 != nil {
+			return character, fmt.Errorf("Error reading body: %s\n", err)
+		} else {
+			return character, fmt.Errorf("Error getting character data: %s", body)
 		}
-		fmt.Printf("body: %s\n", body)
-		os.Exit(1)
 	}
 	if response.StatusCode != 200 {
 		body, _ := io.ReadAll(response.Body)
 		fmt.Println(string(body))
 	} else {
-		body, err := io.ReadAll(response.Body)
+		var character Character
+		body, _ := io.ReadAll(response.Body)
+		err := json.Unmarshal(body, &character)
 		if err != nil {
-			fmt.Printf("error reading body: %s\n", err)
+			return character, err
 		}
-		return string(body), nil
+		return character, nil
 	}
-	return "", fmt.Errorf("Something went wrong.")
+	return character, fmt.Errorf("Something went wrong.")
 }
