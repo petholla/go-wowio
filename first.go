@@ -3,13 +3,17 @@ package main
 
 import (
 //	"os"
+	"petholla/wowio/wowio"
 	"io"
 	"fmt"
+	"github.com/spf13/pflag"
 	"net/http"
 	"encoding/json"
+	"time"
 )
 
 func pprint(data any) {
+	fmt.Printf("%+v\n", data)
 	pretty, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		fmt.Printf("Error formatting data: %s\n", err)
@@ -18,32 +22,20 @@ func pprint(data any) {
 }
 
 func main() {
-	character, err := getChatacterInfo("fizzcrank", "iops")
+	name := pflag.String("name", "", "Character name")
+	pflag.Parse()
+	fmt.Printf("name: %s\n", *name)
+	character, err := getChatacterInfo("fizzcrank", *name)
 	if err != nil {
 		fmt.Println(err)
 	} else {
 		pprint(character)
+		fmt.Println(character.Score())
 	}
 }
 
-type Character struct {
-	Name string `json:"name"`
-	Class string `json:"class"`
-	Spec string `json:"active_spec_name"`
-	Role string `json:"active_spec_role"`
-	Race string `json:"race"`
-	Faction string `json:"faction"`
-	BestRuns []Run `json:"mythic_plus_best_runs"`
-}
-
-type Run struct {
-	Dungeon string `json:"dungeon"`
-	MythicLevel int `json:"mythic_level"`
-	Score float32 `json:"score"`
-}
-
-func getChatacterInfo(realm string, name string) (Character, error) {
-	var character Character
+func getChatacterInfo(realm string, name string) (wowio.Character, error) {
+	var character wowio.Character
 	url := "https://raider.io/api/v1/characters/profile"
 
 	request, err := http.NewRequest(http.MethodGet, url, nil)
@@ -59,20 +51,18 @@ func getChatacterInfo(realm string, name string) (Character, error) {
 	query.Add("fields", "mythic_plus_scores_by_season:current,mythic_plus_best_runs")
 	request.URL.RawQuery = query.Encode()
 
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		body, err2 := io.ReadAll(response.Body)
-		if err2 != nil {
-			return character, fmt.Errorf("Error reading body: %s\n", err)
-		} else {
-			return character, fmt.Errorf("Error getting character data: %s", body)
-		}
+	client := &http.Client{
+		Timeout: 5 * time.Second,
 	}
-	if response.StatusCode != 200 {
+
+	response, err := client.Do(request)
+	if err != nil {
+		return character, fmt.Errorf("Error sending request: %s", err)
+	} else if response.StatusCode != 200 {
 		body, _ := io.ReadAll(response.Body)
 		fmt.Println(string(body))
 	} else {
-		var character Character
+		var character wowio.Character
 		body, _ := io.ReadAll(response.Body)
 		err := json.Unmarshal(body, &character)
 		if err != nil {
