@@ -1,4 +1,4 @@
-module petholla/wowio
+module github.com/petholla/go-wowio
 
 go 1.25.3
 

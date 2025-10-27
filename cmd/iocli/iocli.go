@@ -3,7 +3,7 @@ package main
 
 import (
 //	"os"
-	"petholla/wowio/wowio"
+	"github.com/petholla/go-wowio/pkg/character"
 	"io"
 	"fmt"
 	"github.com/spf13/pflag"
